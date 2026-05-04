@@ -1,0 +1,107 @@
+package com.dbms.service;
+
+import com.dbms.DBConnection;
+import com.dbms.model.User;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Year;
+import java.util.Optional;
+import java.util.regex.Pattern;
+
+public class AuthService {
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    private static final Pattern NAME_PATTERN = Pattern.compile("^[A-Za-z][A-Za-z .'-]{1,58}[A-Za-z]$");
+    private static final Pattern TEXT_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9 .,&'()-]{1,78}$");
+
+    public Optional<User> login(String email, String password) throws SQLException {
+        String sql = "SELECT user_id,name,email,college,branch,graduation_year FROM USERS WHERE LOWER(email)=? AND password=?";
+        try (Connection connection = DBConnection.getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, normalizeEmail(email));
+            statement.setString(2, hashPassword(password));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? Optional.of(map(resultSet)) : Optional.empty();
+            }
+        }
+    }
+
+    public User signup(String name, String email, String password, String college, String branch, String year) throws SQLException, ValidationException {
+        validateSignup(name, email, password, college, branch, year);
+        String normalizedEmail = normalizeEmail(email);
+        if (emailExists(normalizedEmail)) {
+            throw new ValidationException("This email is already registered. Please login or use another email.");
+        }
+
+        String sql = "INSERT INTO USERS(name,email,password,college,branch,graduation_year) VALUES(?,?,?,?,?,?)";
+        try (Connection connection = DBConnection.getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, clean(name));
+            statement.setString(2, normalizedEmail);
+            statement.setString(3, hashPassword(password));
+            statement.setString(4, clean(college));
+            statement.setString(5, clean(branch));
+            statement.setInt(6, Integer.parseInt(year.trim()));
+            statement.executeUpdate();
+        }
+        Optional<User> created = findByEmail(normalizedEmail);
+        if (created.isPresent()) {
+            return created.get();
+        }
+        throw new SQLException("Signup completed but the new user could not be read. Check that USERS.user_id is auto-generated.");
+    }
+
+    public void validateLogin(String email, String password) throws ValidationException {
+        if (blank(email) || blank(password)) throw new ValidationException("Please enter both email and password.");
+        if (!EMAIL_PATTERN.matcher(normalizeEmail(email)).matches()) throw new ValidationException("Please enter a valid email address, for example student@example.com.");
+        if (password.length() < 6) throw new ValidationException("Password must be at least 6 characters long.");
+    }
+
+    private void validateSignup(String name, String email, String password, String college, String branch, String year) throws ValidationException {
+        if (blank(name) || blank(email) || blank(password) || blank(college) || blank(branch) || blank(year)) throw new ValidationException("Please fill all signup fields.");
+        validateLogin(email, password);
+        if (!NAME_PATTERN.matcher(clean(name)).matches()) throw new ValidationException("Name should contain only letters, spaces, apostrophes, periods, or hyphens.");
+        if (!TEXT_PATTERN.matcher(clean(college)).matches()) throw new ValidationException("College name contains invalid characters or is too short.");
+        if (!TEXT_PATTERN.matcher(clean(branch)).matches()) throw new ValidationException("Branch contains invalid characters or is too short.");
+        if (!year.trim().matches("\\d{4}")) throw new ValidationException("Graduation year must be numeric and four digits, for example 2027.");
+        int graduationYear = Integer.parseInt(year.trim());
+        int currentYear = Year.now().getValue();
+        if (graduationYear < currentYear - 10 || graduationYear > currentYear + 8) throw new ValidationException("Graduation year must be realistic, between " + (currentYear - 10) + " and " + (currentYear + 8) + ".");
+    }
+
+    private boolean emailExists(String email) throws SQLException {
+        return findByEmail(email).isPresent();
+    }
+
+    private Optional<User> findByEmail(String email) throws SQLException {
+        try (Connection connection = DBConnection.getConnection(); PreparedStatement statement = connection.prepareStatement("SELECT user_id,name,email,college,branch,graduation_year FROM USERS WHERE LOWER(email)=?")) {
+            statement.setString(1, normalizeEmail(email));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? Optional.of(map(resultSet)) : Optional.empty();
+            }
+        }
+    }
+
+    private User map(ResultSet resultSet) throws SQLException {
+        return new User(resultSet.getInt("user_id"), resultSet.getString("name"), resultSet.getString("email"), resultSet.getString("college"), resultSet.getString("branch"), resultSet.getInt("graduation_year"));
+    }
+
+    public static String hashPassword(String password) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+            StringBuilder builder = new StringBuilder();
+            for (byte value : hash) builder.append(String.format("%02x", value));
+            return builder.toString();
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 unavailable", ex);
+        }
+    }
+
+    private String normalizeEmail(String value) { return value == null ? "" : value.trim().toLowerCase(); }
+    private String clean(String value) { return value == null ? "" : value.trim().replaceAll("\\s+", " "); }
+    private boolean blank(String value) { return value == null || value.trim().isEmpty(); }
+}

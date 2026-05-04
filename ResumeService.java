@@ -1,0 +1,2 @@
+package com.dbms.model;
+public class MockTest { private final int testId,totalMarks; private final String testName,category; public MockTest(int testId,String testName,String category,int totalMarks){this.testId=testId;this.testName=testName;this.category=category;this.totalMarks=totalMarks;} public int getTestId(){return testId;} public String getTestName(){return testName;} public String getCategory(){return category;} public int getTotalMarks(){return totalMarks;} public String toString(){return testName+" ("+category+", "+totalMarks+" marks)";} }

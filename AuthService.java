@@ -1,0 +1,3 @@
+package com.dbms.model;
+
+public class User { private final int userId; private final String name,email,college,branch; private final int graduationYear; public User(int userId,String name,String email,String college,String branch,int graduationYear){this.userId=userId;this.name=name;this.email=email;this.college=college;this.branch=branch;this.graduationYear=graduationYear;} public int getUserId(){return userId;} public int getId(){return userId;} public String getName(){return name;} public String getEmail(){return email;} public String getCollege(){return college;} public String getBranch(){return branch;} public int getGraduationYear(){return graduationYear;} }

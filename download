@@ -1,0 +1,3 @@
+package com.dbms.service;
+import com.dbms.DBConnection; import java.sql.*; import java.time.LocalDate;
+public class ResumeService { public void uploadResume(int userId,String filePath,int score)throws SQLException{try(Connection c=DBConnection.getConnection(); PreparedStatement ps=c.prepareStatement("INSERT INTO RESUMES(user_id,file_path,resume_score,upload_date) VALUES(?,?,?,?)")){ps.setInt(1,userId);ps.setString(2,filePath);ps.setInt(3,score);ps.setDate(4,java.sql.Date.valueOf(LocalDate.now()));ps.executeUpdate();}} public int calculateMockScore(String fileName,long bytes){int s=55;String l=fileName.toLowerCase();if(l.endsWith(".pdf"))s+=10;if(l.contains("resume")||l.contains("cv"))s+=8;if(bytes>50000)s+=12;return Math.min(100,s);} }

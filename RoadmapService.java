@@ -1,0 +1,2 @@
+package com.dbms.model;
+public class Roadmap { private final int roadmapId; private final String targetRole,generatedDate; public Roadmap(int roadmapId,String targetRole,String generatedDate){this.roadmapId=roadmapId;this.targetRole=targetRole;this.generatedDate=generatedDate;} public int getRoadmapId(){return roadmapId;} public String getTargetRole(){return targetRole;} public String getGeneratedDate(){return generatedDate;} public String toString(){return targetRole+" - "+generatedDate;} }
